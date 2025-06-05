@@ -141,8 +141,12 @@ async def cmd_analyze(args):
         
         print(f"✅ Tests generated in: {args.output}")
         
+        # Create output directory if it doesn't exist
+        output_path = Path(args.output)
+        output_path.mkdir(parents=True, exist_ok=True)
+        
         # Save analysis results
-        analysis_file = Path(args.output) / "analysis_results.json"
+        analysis_file = output_path / "analysis_results.json"
         with open(analysis_file, 'w') as f:
             json.dump({
                 'url': args.url,
