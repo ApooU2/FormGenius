@@ -75,6 +75,8 @@ traces/
 generated_tests/
 test_summary/
 final_test_suite/
+test_output/
+manual_test_output/
 output/
 reports/
 logs/
