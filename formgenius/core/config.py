@@ -8,6 +8,13 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from dataclasses import dataclass, field
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+except ImportError:
+    pass  # dotenv not installed, continue with system environment variables
+
 
 @dataclass
 class Config:
@@ -23,6 +30,7 @@ class Config:
     ai_provider: str = "gemini"
     ai_model: str = "gemini-pro"
     gemini_api_key: Optional[str] = None
+    gemini_model: Optional[str] = None
     
     # Form filling settings
     retry_attempts: int = 3
@@ -52,6 +60,12 @@ class Config:
         # Load from environment variables if not set
         if not self.gemini_api_key:
             self.gemini_api_key = os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
+        
+        if not self.gemini_model:
+            self.gemini_model = os.getenv('GEMINI_MODEL') or self.ai_model
+        
+        # Create output directory
+        Path(self.output_directory).mkdir(exist_ok=True)
     
     @property 
     def browser_options(self) -> Dict[str, Any]:
@@ -61,11 +75,6 @@ class Config:
             'timeout': self.timeout,
             'slow_mo': self.slowmo
         }
-        # Load from environment variables
-        self.gemini_api_key = self.gemini_api_key or os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
-        
-        # Create output directory
-        Path(self.output_directory).mkdir(exist_ok=True)
     
     @classmethod
     def from_file(cls, config_path: str) -> 'Config':

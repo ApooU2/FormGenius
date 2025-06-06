@@ -8,11 +8,13 @@ from .config import Config
 from .data_generator import DataGenerator
 from .form_detector import FormDetector
 from .reporter import TestReporter
+from .ai_service import AIService
 
 __all__ = [
     'FormGeniusAgent',
     'Config',
     'DataGenerator', 
     'FormDetector',
-    'TestReporter'
+    'TestReporter',
+    'AIService'
 ]

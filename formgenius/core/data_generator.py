@@ -12,6 +12,8 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from faker import Faker
 
+from .ai_service import AIService
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,6 +25,7 @@ class DataGenerator:
     def __init__(self, config):
         self.config = config
         self.fake = Faker()
+        self.ai_service = AIService(config)
         
         # Data generation strategies
         self.field_strategies = {
@@ -32,6 +35,7 @@ class DataGenerator:
             'name': self._generate_name,
             'phone': self._generate_phone,
             'date': self._generate_date,
+            'time': self._generate_time,
             'number': self._generate_number,
             'select': self._generate_select_value,
             'checkbox': self._generate_checkbox_value,
@@ -43,7 +47,7 @@ class DataGenerator:
     
     async def generate_form_data(self, form: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Generate complete test data for a form.
+        Generate complete test data for a form using AI-powered analysis.
         
         Args:
             form: Form structure from FormDetector
@@ -53,6 +57,14 @@ class DataGenerator:
         """
         logger.info(f"Generating test data for form with {len(form.get('fields', []))} fields")
         
+        # First, analyze the form with AI to get context
+        form_context = {}
+        if self.ai_service.is_available():
+            logger.info("Using AI to analyze form context...")
+            form_context = await self.ai_service.analyze_form_context(form)
+            if form_context:
+                logger.info(f"AI identified form as: {form_context.get('form_type', 'unknown')} - {form_context.get('form_purpose', 'unknown')}")
+        
         form_data = {}
         
         for field in form.get('fields', []):
@@ -60,8 +72,17 @@ class DataGenerator:
             if not field_name:
                 continue
             
-            # Generate value based on field type and context
-            value = await self._generate_field_value(field)
+            # Try AI-powered generation first
+            value = None
+            if self.ai_service.is_available():
+                value = await self.ai_service.generate_field_value(field, form_context)
+                if value:
+                    logger.debug(f"AI generated value for {field_name}: {value}")
+            
+            # Fall back to rule-based generation if AI didn't provide a value
+            if value is None:
+                value = await self._generate_field_value(field)
+            
             if value is not None:
                 form_data[field_name] = value
         
@@ -84,7 +105,7 @@ class DataGenerator:
     
     async def generate_invalid_data(self, form: Dict[str, Any], scenario: str) -> Dict[str, Any]:
         """
-        Generate invalid test data for validation testing.
+        Generate invalid test data for validation testing using AI when available.
         
         Args:
             form: Form structure
@@ -102,8 +123,17 @@ class DataGenerator:
             if not field_name:
                 continue
             
-            # Generate invalid value based on scenario
-            invalid_value = await self._generate_invalid_field_value(field, scenario)
+            # Try AI-powered invalid data generation first
+            invalid_value = None
+            if self.ai_service.is_available():
+                invalid_value = await self.ai_service.generate_validation_test_data(field, scenario)
+                if invalid_value:
+                    logger.debug(f"AI generated invalid data for {field_name}: {invalid_value}")
+            
+            # Fall back to rule-based invalid generation
+            if invalid_value is None:
+                invalid_value = await self._generate_invalid_field_value(field, scenario)
+            
             if invalid_value is not None:
                 invalid_data[field_name] = invalid_value
         
@@ -139,6 +169,8 @@ class DataGenerator:
             return 'phone'
         elif field_type in ['date', 'datetime-local']:
             return 'date'
+        elif field_type in ['time']:
+            return 'time'
         elif field_type in ['number', 'range']:
             return 'number'
         elif field_type in ['url']:
@@ -232,6 +264,44 @@ class DataGenerator:
         
         return fake_date.strftime('%Y-%m-%d')
     
+    async def _generate_time(self, field: Dict[str, Any]) -> str:
+        """Generate a realistic time in HH:MM format."""
+        constraints = field.get('constraints', {})
+        
+        # Check for min/max time constraints
+        min_time = constraints.get('min', '09:00')
+        max_time = constraints.get('max', '17:00')
+        
+        # Parse time constraints or use defaults
+        try:
+            if ':' in min_time:
+                min_hour, min_minute = map(int, min_time.split(':'))
+            else:
+                min_hour, min_minute = 9, 0
+        except:
+            min_hour, min_minute = 9, 0
+            
+        try:
+            if ':' in max_time:
+                max_hour, max_minute = map(int, max_time.split(':'))
+            else:
+                max_hour, max_minute = 17, 0
+        except:
+            max_hour, max_minute = 17, 0
+        
+        # Generate random time within constraints
+        hour = random.randint(min_hour, max_hour)
+        minute = random.randint(0, 59)
+        
+        # If we're at the max hour, don't exceed max minute
+        if hour == max_hour:
+            minute = min(minute, max_minute)
+        # If we're at the min hour, don't go below min minute
+        if hour == min_hour:
+            minute = max(minute, min_minute)
+        
+        return f"{hour:02d}:{minute:02d}"
+    
     async def _generate_number(self, field: Dict[str, Any]) -> str:
         """Generate a realistic number."""
         constraints = field.get('constraints', {})
@@ -280,7 +350,7 @@ class DataGenerator:
         return "test_file.txt"
     
     async def _generate_select_value(self, field: Dict[str, Any]) -> str:
-        """Generate a value for select fields with smart option selection."""
+        """Generate a value for select fields with AI-powered smart option selection."""
         options = field.get('options', [])
         field_label = field.get('label', '').lower()
         field_name = field.get('name', '').lower()
@@ -307,7 +377,16 @@ class DataGenerator:
             logger.warning(f"No valid options found for select field: {field_name}")
             return ""
         
-        # Smart selection based on field context
+        # Try AI-powered selection first
+        if self.ai_service.is_available():
+            ai_selection = await self.ai_service.generate_intelligent_option_selection(
+                field, valid_options
+            )
+            if ai_selection:
+                logger.debug(f"AI selected option for {field_name}: {ai_selection.get('text', ai_selection.get('value'))}")
+                return ai_selection.get('value', '')
+        
+        # Fall back to rule-based smart selection
         selected_option = self._smart_option_selection(valid_options, field_label, field_name)
         return selected_option.get('value', '')
     
@@ -382,29 +461,27 @@ class DataGenerator:
             return random.choice([True, True, False])
     
     async def _generate_radio_value(self, field: Dict[str, Any]) -> str:
-        """Generate a value for radio button fields with smart selection."""
+        """Generate a value for radio button fields with AI-enhanced smart selection."""
+        options = field.get('options', [])
         field_label = field.get('label', '').lower()
         field_name = field.get('name', '').lower()
-        field_context = f"{field_label} {field_name}".lower()
         
-        # For radio buttons, we need to determine what options might be available
-        # Since radio buttons are grouped by name, we'll generate contextually appropriate values
+        if not options:
+            logger.warning(f"No options found for radio field: {field_name}")
+            return ""
         
-        if any(keyword in field_context for keyword in ['gender', 'sex']):
-            return random.choice(['Male', 'Female', 'male', 'female', 'M', 'F'])
-        elif any(keyword in field_context for keyword in ['yes', 'no', 'boolean']):
-            return random.choice(['Yes', 'No', 'yes', 'no', 'Y', 'N'])
-        elif any(keyword in field_context for keyword in ['rating', 'satisfaction']):
-            return random.choice(['5', '4', 'Excellent', 'Good', 'Very Good'])
-        elif any(keyword in field_context for keyword in ['frequency', 'often']):
-            return random.choice(['Daily', 'Weekly', 'Monthly', 'Rarely'])
-        elif any(keyword in field_context for keyword in ['size']):
-            return random.choice(['Small', 'Medium', 'Large', 'S', 'M', 'L'])
-        elif any(keyword in field_context for keyword in ['priority']):
-            return random.choice(['High', 'Medium', 'Low', '1', '2', '3'])
-        else:
-            # Generic options that might work for many radio groups
-            return random.choice(['Option1', 'Option2', 'A', 'B', '1', '2', 'Yes'])
+        # Try AI generation first if available
+        if self.ai_service.is_available():
+            ai_selection = await self.ai_service.generate_intelligent_option_selection(
+                field, options
+            )
+            if ai_selection:
+                logger.debug(f"AI selected radio option for {field_name}: {ai_selection.get('text', ai_selection.get('value'))}")
+                return ai_selection.get('value', '')
+        
+        # Fall back to rule-based smart selection
+        selected_option = self._smart_option_selection(options, field_label, field_name)
+        return selected_option.get('value', '')
     
     async def _generate_enhanced_data(self, field: Dict[str, Any]) -> Any:
         """Enhanced data generation with better context awareness."""

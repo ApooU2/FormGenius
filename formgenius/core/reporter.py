@@ -72,12 +72,18 @@ class TestReporter:
         
         total_scenarios = sum(r.get('scenarios_executed', 0) for r in results)
         
+        start_time = session_data.get('start_time')
+        end_time = datetime.now()
+        duration = 0
+        if start_time:
+            duration = (end_time - start_time).total_seconds()
+        
         return {
             'session_info': {
                 'session_id': session_data.get('session_id'),
-                'start_time': session_data.get('start_time'),
-                'end_time': datetime.now(),
-                'duration': (datetime.now() - session_data.get('start_time')).total_seconds()
+                'start_time': start_time,
+                'end_time': end_time,
+                'duration': duration
             },
             'summary': {
                 'total_forms': total_forms,
@@ -206,7 +212,7 @@ class TestReporter:
             <h1>🤖 FormGenius Test Report</h1>
             <p>AI-Powered Form Automation Results</p>
             <div class="timestamp">
-                Generated: {report_data['session_info']['end_time'].strftime('%Y-%m-%d %H:%M:%S')}
+                Generated: {report_data['session_info']['end_time'].strftime('%Y-%m-%d %H:%M:%S') if report_data['session_info']['end_time'] else 'N/A'}
             </div>
         </div>
         
@@ -240,8 +246,8 @@ class TestReporter:
             <h2>ℹ️ Session Information</h2>
             <div class="details">
                 <p><strong>Session ID:</strong> {report_data['session_info']['session_id']}</p>
-                <p><strong>Start Time:</strong> {report_data['session_info']['start_time'].strftime('%Y-%m-%d %H:%M:%S')}</p>
-                <p><strong>End Time:</strong> {report_data['session_info']['end_time'].strftime('%Y-%m-%d %H:%M:%S')}</p>
+                <p><strong>Start Time:</strong> {report_data['session_info']['start_time'].strftime('%Y-%m-%d %H:%M:%S') if report_data['session_info']['start_time'] else 'N/A'}</p>
+                <p><strong>End Time:</strong> {report_data['session_info']['end_time'].strftime('%Y-%m-%d %H:%M:%S') if report_data['session_info']['end_time'] else 'N/A'}</p>
                 <p><strong>Total Duration:</strong> {report_data['session_info']['duration']:.2f} seconds</p>
             </div>
         </div>

@@ -82,6 +82,14 @@ reports/
 logs/
 *.log
 
+# Debug and temporary test files
+debug_*.py
+test_ai_*.py
+*_REPORT.md
+*_SUMMARY.md
+test_forms.txt
+test_results/
+
 # AI and ML models (if any)
 models/
 *.pkl

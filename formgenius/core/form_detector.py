@@ -112,17 +112,24 @@ class FormDetector:
             processed_radio_groups = set()
             
             for input_elem in input_elements:
+                # Skip if not a valid element (e.g., NavigableString)
+                if not hasattr(input_elem, 'get') or not hasattr(input_elem, 'name'):
+                    continue
+                    
                 field_data = self._analyze_field(input_elem)
                 if field_data:
                     # Special handling for radio buttons
                     if field_data.get('type') == 'radio':
                         radio_name = field_data.get('name')
                         if radio_name and radio_name not in processed_radio_groups:
-                            # Analyze the entire radio group
-                            radio_group_data = self._analyze_radio_group(form_element, radio_name)
-                            if radio_group_data:
-                                fields.append(radio_group_data)
-                                processed_radio_groups.add(radio_name)
+                            # Find all radio buttons with this name
+                            radio_elements = form_element.find_all('input', {'name': radio_name, 'type': 'radio'})
+                            if radio_elements:
+                                # Analyze the entire radio group
+                                radio_group_data = self._analyze_radio_group(radio_elements, radio_name)
+                                if radio_group_data:
+                                    fields.append(radio_group_data)
+                                    processed_radio_groups.add(radio_name)
                     else:
                         fields.append(field_data)
             
@@ -170,6 +177,10 @@ class FormDetector:
             all_inputs = input_elements + custom_inputs
             
             for input_elem in all_inputs:
+                # Skip if not a valid element (e.g., NavigableString)
+                if not hasattr(input_elem, 'get') or not hasattr(input_elem, 'name'):
+                    continue
+                    
                 field_data = self._analyze_field(input_elem)
                 if field_data:
                     fields.append(field_data)
@@ -395,6 +406,46 @@ class FormDetector:
         
         # Fallback to value
         return radio_element.get('value', 'Option')
+
+    def _analyze_radio_group(self, radio_elements: List, name: str) -> Dict[str, Any]:
+        """Analyze a group of radio buttons with the same name."""
+        options = []
+        
+        for radio in radio_elements:
+            value = radio.get('value', '')
+            label = self._get_field_label(radio)
+            
+            # Try to get label from associated label element
+            if not label and radio.get('id'):
+                parent = radio.parent
+                while parent:
+                    label_elem = parent.find('label', {'for': radio['id']})
+                    if label_elem:
+                        label = label_elem.get_text().strip()
+                        break
+                    parent = parent.parent
+            
+            # Use value as label if no label found
+            if not label:
+                label = value or f"Option {len(options) + 1}"
+            
+            options.append({
+                'value': value,
+                'text': label
+            })
+        
+        # Get the first radio button's properties for the group
+        first_radio = radio_elements[0]
+        
+        return {
+            'id': first_radio.get('id'),
+            'name': name,
+            'type': 'radio',
+            'label': self._get_field_label(first_radio),
+            'required': bool(first_radio.get('required')),
+            'options': options,
+            'selector': f"input[name='{name}']"
+        }
 
     async def detect_power_apps_forms(self, page) -> List[Dict[str, Any]]:
         """
