@@ -1,0 +1,27 @@
+# Sample URLs for batch form filling
+# Replace these with actual form URLs you want to test
+
+# Basic contact forms
+https://example.com/contact
+https://demo.com/feedback
+https://test.org/survey
+
+# E-commerce forms
+https://shop.example.com/checkout
+https://store.demo.com/registration
+
+# Government forms
+https://gov.example.com/application
+https://portal.demo.gov/submit
+
+# Power Apps forms (examples)
+https://apps.powerapps.com/play/app-id-1
+https://apps.powerapps.com/play/app-id-2
+
+# Job application forms
+https://careers.example.com/apply
+https://jobs.demo.com/application
+
+# Newsletter signup forms
+https://newsletter.example.com/subscribe
+https://blog.demo.com/signup

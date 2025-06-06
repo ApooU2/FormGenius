@@ -1,0 +1,193 @@
+# FormGenius Configuration File
+# This file contains all the settings for the FormGenius agent
+
+# Browser configuration
+browser:
+  # Browser type: chromium, firefox, webkit
+  type: "chromium"
+  # Run browser in headless mode
+  headless: false
+  # Browser window size
+  viewport:
+    width: 1920
+    height: 1080
+  # Additional browser options
+  options:
+    - "--no-sandbox"
+    - "--disable-dev-shm-usage"
+    - "--disable-blink-features=AutomationControlled"
+
+# MCP (Model Context Protocol) server configuration
+mcp_server:
+  # Server URL for Playwright MCP
+  url: "http://localhost:3000"
+  # Connection timeout in seconds
+  timeout: 30
+  # Enable MCP server integration
+  enabled: true
+
+# AI/LLM configuration for data generation
+ai:
+  # Provider: openai, google, anthropic
+  provider: "google"
+  # Model name
+  model: "gemini-pro"
+  # API key (can also be set via GOOGLE_API_KEY environment variable)
+  api_key: null
+  # Temperature for text generation (0.0 - 1.0)
+  temperature: 0.7
+  # Maximum tokens for generated content
+  max_tokens: 1000
+
+# Form detection settings
+form_detection:
+  # Timeout for form detection in seconds
+  timeout: 10
+  # Enable Power Apps form detection
+  power_apps_support: true
+  # CSS selectors for different form types
+  selectors:
+    # Standard HTML forms
+    standard_forms:
+      - "form"
+      - "[role='form']"
+      - ".form"
+    # Power Apps specific selectors
+    power_apps:
+      - "[data-control-name]"
+      - ".appmagic-control"
+      - "[class*='powerapps']"
+    # Input field selectors
+    input_fields:
+      - "input"
+      - "textarea"
+      - "select"
+      - "[contenteditable='true']"
+
+# Data generation settings
+data_generation:
+  # Locale for generating localized data
+  locale: "en_US"
+  # Enable realistic data generation
+  realistic_data: true
+  # Custom data providers
+  providers:
+    names:
+      first_names: ["John", "Jane", "Mike", "Sarah", "David", "Emily"]
+      last_names: ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia"]
+    companies: ["Acme Corp", "TechStart Inc", "Global Solutions", "Innovation Labs"]
+    domains: ["example.com", "test.org", "sample.net"]
+  
+  # Field type mappings for intelligent data generation
+  field_mappings:
+    email:
+      patterns: ["email", "e-mail", "mail"]
+      generator: "email"
+    phone:
+      patterns: ["phone", "tel", "mobile", "contact"]
+      generator: "phone_number"
+    name:
+      patterns: ["name", "full_name", "firstname", "lastname"]
+      generator: "name"
+    address:
+      patterns: ["address", "street", "city", "zip", "postal"]
+      generator: "address"
+    date:
+      patterns: ["date", "birth", "dob", "created"]
+      generator: "date"
+    number:
+      patterns: ["age", "quantity", "amount", "count"]
+      generator: "random_int"
+
+# Form filling behavior
+form_filling:
+  # Delay between field interactions (milliseconds)
+  field_delay: 500
+  # Delay between keystrokes (milliseconds)
+  typing_delay: 50
+  # Wait for form to load (seconds)
+  form_load_timeout: 15
+  # Enable form validation after filling
+  validate_after_fill: true
+  # Scroll to elements before interaction
+  scroll_to_element: true
+  # Take screenshots during process
+  take_screenshots: true
+
+# Test scenarios configuration
+test_scenarios:
+  valid:
+    description: "Fill form with valid data"
+    data_quality: "valid"
+    submit_form: false
+  invalid:
+    description: "Fill form with invalid data to test validation"
+    data_quality: "invalid"
+    submit_form: false
+  edge:
+    description: "Fill form with edge case data"
+    data_quality: "edge"
+    submit_form: false
+
+# Power Apps specific settings
+power_apps:
+  # Wait for Power Apps to fully load (seconds)
+  load_timeout: 30
+  # Enable Power Apps specific field detection
+  enhanced_detection: true
+  # Common Power Apps field types
+  field_types:
+    - "TextInput"
+    - "ComboBox"
+    - "DatePicker"
+    - "DropDown"
+    - "TextArea"
+    - "Checkbox"
+    - "Radio"
+    - "Button"
+
+# Reporting configuration
+reporting:
+  # Output format: html, json, both
+  format: "both"
+  # Include screenshots in reports
+  include_screenshots: true
+  # Include form HTML in reports
+  include_form_html: false
+  # Report detail level: basic, detailed, verbose
+  detail_level: "detailed"
+  # Custom report templates directory
+  templates_dir: "templates"
+
+# Logging configuration
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR
+  level: "INFO"
+  # Log file path
+  file: "formgenius.log"
+  # Include timestamps in logs
+  include_timestamps: true
+  # Log format
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Security settings
+security:
+  # Enable HTTPS verification
+  verify_ssl: true
+  # User agent string
+  user_agent: "FormGenius/1.0 (Automated Testing Bot)"
+  # Enable cookie handling
+  handle_cookies: true
+  # Maximum file upload size (MB)
+  max_upload_size: 10
+
+# Performance settings
+performance:
+  # Maximum concurrent forms to process
+  max_concurrent_forms: 3
+  # Request timeout (seconds)
+  request_timeout: 30
+  # Maximum retry attempts
+  max_retries: 3
+  # Retry delay (seconds)
+  retry_delay: 2
