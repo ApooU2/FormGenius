@@ -163,8 +163,32 @@ async def test_form_validation(agent: FormGeniusAgent, url: str, scenarios: List
 
 
 async def fill_power_apps_form(agent: FormGeniusAgent, url: str, submit: bool, scenario: str) -> dict:
-    """Fill a Power Apps form"""
+    """Fill a Power Apps form with authentication handling"""
     logging.info(f"Filling Power Apps form at: {url}")
+    
+    # Check if authentication is required
+    from formgenius.auth.microsoft_auth import MicrosoftAuthenticator
+    
+    # Initialize a temporary authenticator to check requirements
+    temp_authenticator = MicrosoftAuthenticator(agent.config, None)
+    
+    if temp_authenticator.is_auth_required(url):
+        # Check authentication status
+        import os
+        if not os.path.exists("auth_state.json"):
+            print("\n🔐 AUTHENTICATION REQUIRED")
+            print("="*50)
+            print("❌ Microsoft authentication is required for Power Apps.")
+            print("💡 Please run the authentication setup first:")
+            print("   python setup_auth.py")
+            print("\nAfter authentication, run this command again.")
+            return {
+                'success': False,
+                'error': 'Authentication required',
+                'help': 'Run: python setup_auth.py'
+            }
+        
+        print("✅ Authentication detected - proceeding with Power Apps testing...")
     
     # Convert old CLI parameters to new method signature
     test_scenarios = [scenario] if scenario else ["valid"]

@@ -13,11 +13,13 @@ from .core.form_detector import FormDetector
 from .core.data_generator import DataGenerator
 from .integrations.playwright_mcp import PlaywrightMCPClient
 from .integrations.power_apps import PowerAppsHandler
+from .auth.microsoft_auth import MicrosoftAuthenticator
 
 __all__ = [
     "FormGeniusAgent",
     "FormDetector", 
     "DataGenerator",
     "PlaywrightMCPClient",
-    "PowerAppsHandler"
+    "PowerAppsHandler",
+    "MicrosoftAuthenticator"
 ]

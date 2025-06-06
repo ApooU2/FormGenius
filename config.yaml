@@ -181,6 +181,21 @@ security:
   # Maximum file upload size (MB)
   max_upload_size: 10
 
+# Authentication settings
+authentication:
+  # Microsoft Office 365 authentication
+  microsoft:
+    # Enable Microsoft authentication
+    enabled: true
+    # Authentication cache duration (days)
+    cache_duration: 30
+    # Login timeout (seconds)
+    login_timeout: 300
+    # 2FA timeout (seconds)
+    two_fa_timeout: 300
+    # Retry attempts for authentication
+    retry_attempts: 3
+
 # Performance settings
 performance:
   # Maximum concurrent forms to process

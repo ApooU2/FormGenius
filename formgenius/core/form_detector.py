@@ -28,7 +28,105 @@ class FormDetector:
             '.powerapps-form',
             '.dynamics-form'
         ]
-    
+        
+        # Keywords for identifying credential information on pages
+        self.credential_keywords = [
+            'username', 'user name', 'login', 'email', 
+            'password', 'pass', 'credentials', 'demo account',
+            'test account', 'sample login', 'example credentials'
+        ]
+        
+    async def analyze_page_context(self, page) -> Dict[str, Any]:
+        """
+        Analyze the full page context to identify instructions, credentials, and hints
+        that may be present on the page but outside the form itself.
+        
+        Args:
+            page: Playwright page object
+            
+        Returns:
+            Dictionary of contextual information including potential credentials
+        """
+        logger.info("Analyzing full page context for instructions and credentials")
+        
+        context_data = {
+            'credentials': {},
+            'instructions': [],
+            'has_test_credentials': False
+        }
+        
+        try:
+            # Get page content
+            content = await page.content()
+            soup = BeautifulSoup(content, 'html.parser')
+            
+            # Find potential credential sections
+            # Look for paragraphs, divs, tables with credential keywords
+            credential_elements = []
+            
+            # Look for paragraphs and divs with credential info
+            for element in soup.find_all(['p', 'div', 'span', 'li', 'td']):
+                text = element.get_text().lower().strip()
+                if any(keyword in text for keyword in self.credential_keywords):
+                    credential_elements.append(element)
+            
+            # Extract credentials from identified elements
+            for element in credential_elements:
+                text = element.get_text().strip()
+                context_data['instructions'].append(text)
+                
+                # Look for username/email patterns
+                if any(keyword in text.lower() for keyword in ['username', 'user name', 'login', 'email']):
+                    # Try to extract username using regex patterns
+                    import re
+                    username_patterns = [
+                        r'username[:\s]*([a-zA-Z0-9_@\.]+)',
+                        r'user name[:\s]*([a-zA-Z0-9_@\.]+)',
+                        r'login[:\s]*([a-zA-Z0-9_@\.]+)',
+                        r'email[:\s]*([a-zA-Z0-9_@\.]+)'
+                    ]
+                    
+                    for pattern in username_patterns:
+                        match = re.search(pattern, text, re.IGNORECASE)
+                        if match:
+                            context_data['credentials']['username'] = match.group(1).strip()
+                            context_data['has_test_credentials'] = True
+                            break
+                
+                # Look for password patterns
+                if any(keyword in text.lower() for keyword in ['password', 'pass']):
+                    # Try to extract password using regex patterns
+                    import re
+                    password_patterns = [
+                        r'password[:\s]*([a-zA-Z0-9_@\.!#$%^&*]+)',
+                        r'pass[:\s]*([a-zA-Z0-9_@\.!#$%^&*]+)'
+                    ]
+                    
+                    for pattern in password_patterns:
+                        match = re.search(pattern, text, re.IGNORECASE)
+                        if match:
+                            context_data['credentials']['password'] = match.group(1).strip()
+                            context_data['has_test_credentials'] = True
+                            break
+            
+            # Find any general instructions
+            instruction_elements = []
+            
+            # Look for elements that might contain instructions
+            for element in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div.instructions', '.info', '.note']):
+                text = element.get_text().strip()
+                if len(text) > 10 and any(word in text.lower() for word in ['instructions', 'steps', 'guide', 'fill', 'enter', 'complete']):
+                    instruction_elements.append(text)
+            
+            context_data['instructions'].extend(instruction_elements)
+            
+            logger.info(f"Page context analysis complete. Found credentials: {context_data['has_test_credentials']}")
+            return context_data
+            
+        except Exception as e:
+            logger.error(f"Error analyzing page context: {e}")
+            return context_data
+            
     async def detect_forms(self, page) -> List[Dict[str, Any]]:
         """
         Detect all forms on the current page.

@@ -8,6 +8,7 @@ and filling Power Apps forms which use custom controls and dynamic loading.
 import asyncio
 import logging
 from typing import Dict, List, Optional, Any
+from ..auth.microsoft_auth import MicrosoftAuthenticator
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ class PowerAppsHandler:
     def __init__(self, config):
         self.config = config
         self.playwright_client = None
+        self.authenticator = None
         
         # Power Apps specific selectors
         self.selectors = config.power_apps_selectors
@@ -42,11 +44,12 @@ class PowerAppsHandler:
             playwright_client: PlaywrightMCPClient instance
         """
         self.playwright_client = playwright_client
+        self.authenticator = MicrosoftAuthenticator(self.config, playwright_client)
         logger.info("Power Apps handler initialized")
     
     async def navigate_to_app(self, app_url: str) -> Dict[str, Any]:
         """
-        Navigate to a Power Apps application.
+        Navigate to a Power Apps application with authentication handling.
         
         Args:
             app_url: URL of the Power Apps application
@@ -57,10 +60,46 @@ class PowerAppsHandler:
         logger.info(f"Navigating to Power Apps: {app_url}")
         
         try:
+            # Check if authentication is required
+            if self.authenticator.is_auth_required(app_url):
+                logger.info("Authentication required for Power Apps")
+                
+                # Check authentication status
+                auth_status = await self.authenticator.get_auth_status()
+                
+                if not auth_status.get('authenticated') or not auth_status.get('auth_file_exists'):
+                    return {
+                        'success': False,
+                        'app_url': app_url,
+                        'error': 'Authentication required. Please run setup_auth.py first.',
+                        'help': 'Run: python setup_auth.py'
+                    }
+                
+                # Try to load cached authentication
+                if not await self.authenticator._load_cached_auth():
+                    return {
+                        'success': False,
+                        'app_url': app_url,
+                        'error': 'Failed to load authentication. Please re-run setup_auth.py',
+                        'help': 'Run: python setup_auth.py'
+                    }
+                
+                logger.info("Authentication loaded successfully")
+            
             # Navigate to the app
             nav_result = await self.playwright_client.navigate_to(app_url)
             if not nav_result['success']:
                 return nav_result
+            
+            # Check if we were redirected to login (authentication failed)
+            current_url = self.playwright_client.page.url
+            if "login" in current_url.lower() or "signin" in current_url.lower():
+                return {
+                    'success': False,
+                    'app_url': app_url,
+                    'error': 'Redirected to login page. Authentication may have expired.',
+                    'help': 'Run: python setup_auth.py'
+                }
             
             # Wait for Power Apps to initialize
             await self.wait_for_app_load()
@@ -68,6 +107,7 @@ class PowerAppsHandler:
             return {
                 'success': True,
                 'app_url': app_url,
+                'current_url': current_url,
                 'message': 'Power Apps loaded successfully'
             }
             

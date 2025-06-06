@@ -96,7 +96,13 @@ class PlaywrightMCPClient:
         try:
             logger.info(f"Navigating to: {url}")
             
-            response = await self.page.goto(url, wait_until='networkidle')
+            try:
+                # First try with 'networkidle', but with a shorter timeout
+                response = await self.page.goto(url, wait_until='networkidle', timeout=10000)
+            except Exception as navigation_error:
+                logger.warning(f"Navigation with 'networkidle' failed, trying with 'load': {navigation_error}")
+                # If networkidle fails, try with 'load' which is less strict
+                response = await self.page.goto(url, wait_until='load')
             
             # Wait for page to be fully loaded
             await self.page.wait_for_load_state('domcontentloaded')

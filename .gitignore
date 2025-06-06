@@ -97,6 +97,19 @@ models/
 *.h5
 *.pb
 
+# Authentication and credentials
+auth_state.json
+auth_cache.json
+*.auth.json
+session_storage.json
+local_storage.json
+cookies.json
+
+# Azure/Microsoft credentials
+.azure/
+msal_cache.json
+token_cache.json
+
 # Temporary files
 *.tmp
 *.temp

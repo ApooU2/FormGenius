@@ -83,6 +83,17 @@ class FormGeniusAgent:
                     'error': f"Failed to navigate to {url}: {navigation_result.get('error')}"
                 }
             
+            # First analyze the full page context for any credentials or instructions
+            # This is important for test sites that display login credentials on the page
+            page_context = await self.form_detector.analyze_page_context(self.playwright_client.page)
+            logger.info(f"Page context analyzed. Found credentials: {page_context['has_test_credentials']}")
+            
+            # If test credentials were found on the page, use them
+            predefined_credentials = {}
+            if page_context['has_test_credentials'] and page_context['credentials']:
+                predefined_credentials = page_context['credentials']
+                logger.info(f"Using credentials found on page: {list(predefined_credentials.keys())}")
+            
             # Detect forms on the page
             forms = await self.form_detector.detect_forms(self.playwright_client.page)
             if not forms:
@@ -96,15 +107,35 @@ class FormGeniusAgent:
             for i, form in enumerate(forms):
                 logger.info(f"Processing form {i+1}/{len(forms)}")
                 
-                # Generate test data if not provided
+                # Generate test data if not provided, incorporating page credentials if found
                 if not form_data:
-                    form_data = await self.data_generator.generate_form_data(form)
+                    generated_form_data = await self.data_generator.generate_form_data(form, page_context)
+                    
+                    # If we found credentials on the page, override the generated ones
+                    if predefined_credentials:
+                        for field_name, field_value in predefined_credentials.items():
+                            # Map common credential field names
+                            if field_name == 'username':
+                                for potential_name in ['username', 'user', 'email', 'login', 'user_id']:
+                                    if potential_name in generated_form_data:
+                                        generated_form_data[potential_name] = field_value
+                                        
+                            elif field_name == 'password':
+                                for potential_name in ['password', 'pass', 'pwd']:
+                                    if potential_name in generated_form_data:
+                                        generated_form_data[potential_name] = field_value
+                            
+                            # Also try direct field name mapping
+                            if field_name in generated_form_data:
+                                generated_form_data[field_name] = field_value
+                    
+                    form_data = generated_form_data
                 
                 # Execute test scenarios
                 scenarios = test_scenarios or ['happy_path']
                 for scenario in scenarios:
                     scenario_result = await self._execute_form_scenario(
-                        form, form_data, scenario
+                        form, form_data, scenario, page_context
                     )
                     results.append(scenario_result)
             
@@ -115,7 +146,12 @@ class FormGeniusAgent:
                 'forms_found': len(forms),
                 'scenarios_executed': len(results),
                 'results': results,
-                'session_id': self.session_data['session_id']
+                'session_id': self.session_data['session_id'],
+                'page_context': {
+                    'credentials_found': page_context['has_test_credentials'],
+                    'instructions_found': len(page_context['instructions']) > 0
+                },
+                'api_usage': self.data_generator.ai_service.get_api_usage_metrics() if self.data_generator.ai_service.is_available() else {}
             }
             
             self.session_data['forms_processed'].append(url)
@@ -166,6 +202,11 @@ class FormGeniusAgent:
             
             # Wait for app to load and detect forms
             await self.power_apps_handler.wait_for_app_load()
+            
+            # First analyze the full page context for any credentials or instructions
+            page_context = await self.form_detector.analyze_page_context(self.playwright_client.page)
+            logger.info(f"Power Apps page context analyzed. Found credentials: {page_context['has_test_credentials']}")
+            
             forms = await self.power_apps_handler.detect_power_apps_forms()
             
             if not forms:
@@ -178,7 +219,7 @@ class FormGeniusAgent:
             results = []
             for form in forms:
                 if not form_data:
-                    form_data = await self.data_generator.generate_power_apps_data(form)
+                    form_data = await self.data_generator.generate_power_apps_data(form, page_context)
                 
                 scenarios = test_scenarios or ['happy_path', 'validation_test']
                 for scenario in scenarios:
@@ -263,6 +304,10 @@ class FormGeniusAgent:
         # Update overall success status
         batch_results['success'] = batch_results['failed_fills'] == 0
         
+        # Add API usage metrics
+        if self.data_generator.ai_service.is_available():
+            batch_results['api_usage'] = self.data_generator.ai_service.get_api_usage_metrics()
+        
         return batch_results
     
     async def test_form_validation(self, url: str, validation_scenarios: Optional[List[str]] = None) -> Dict[str, Any]:
@@ -343,11 +388,16 @@ class FormGeniusAgent:
     
     async def _execute_form_scenario(self, form: Dict[str, Any], 
                                    form_data: Dict[str, Any], 
-                                   scenario: str) -> Dict[str, Any]:
+                                   scenario: str,
+                                   page_context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Execute a specific test scenario for a form."""
         logger.info(f"Executing scenario: {scenario}")
         
         try:
+            # Use any page instructions or context for improved form filling
+            if page_context and page_context.get('instructions'):
+                logger.info(f"Using {len(page_context['instructions'])} page instructions to guide form filling")
+            
             # Fill out the form fields
             fill_result = await self._fill_form_fields(form, form_data)
             if not fill_result['success']:
